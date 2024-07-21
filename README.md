@@ -127,7 +127,7 @@ src
    ./gradlew run
    ```
 
-The API will be available at `http://localhost:8080/openapi`.
+The API will be available at `http://localhost:8080`.
 
 ## 📖 API Documentation
 
