@@ -1,4 +1,5 @@
 version: "3.9"
+name: ktor-example
 services:
   db:
     image: postgres:16
@@ -32,14 +33,17 @@ services:
       KC_DB_PASSWORD: postgres
       KC_DB_USERNAME: postgres
       KC_DB_SCHEMA: public
+      KEYCLOAK_IMPORT: "/opt/keycloak/data/import"
     command:
-      - start-dev
-      - --import-realm
+      - "start-dev"
+      - "--import-realm"
       - "-Dkeycloak.migration.action=import"
       - "-Dkeycloak.migration.provider=dir"
       - "-Dkeycloak.migration.dir=/opt/keycloak/data/import"
       - "-Dkeycloak.migration.strategy=OVERWRITE_EXISTING"
     volumes:
       - ./realms:/opt/keycloak/data/import
+    depends_on:
+      - auth-db
 
     restart: always

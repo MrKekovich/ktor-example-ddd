@@ -1,0 +1,15 @@
+GET localhost:8080/posts
+Accept: application/json
+Authorization: Bearer {{$auth.token("keycloak")}}
+
+###
+
+POST localhost:8080/posts
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{$auth.token("keycloak")}}
+
+{
+  "title": "foo",
+  "content": "0123456789"
+}
