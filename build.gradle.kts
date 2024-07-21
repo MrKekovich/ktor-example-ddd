@@ -74,3 +74,4 @@ tasks.jar {
         )
     }
 }
+//KEYCLOAK_HOST=localhost;KEYCLOAK_PORT=8180;KEYCLOAK_REALM=netrunner;POSTGRES_DATABASE=postgres;POSTGRES_HOST=localhost;POSTGRES_PASSWORD=postgres;POSTGRES_PORT=5432;POSTGRES_USER=postgres;

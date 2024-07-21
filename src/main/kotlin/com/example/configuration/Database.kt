@@ -1,5 +1,6 @@
 package com.example.configuration
 
+import com.example.post.schema.PostTable
 import com.example.utils.Environment
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -22,7 +23,7 @@ fun configureDatabase() {
 
     transaction(db) {
         SchemaUtils.createMissingTablesAndColumns(
-
+            PostTable
         )
     }
 }
