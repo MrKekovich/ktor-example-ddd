@@ -1,11 +1,9 @@
-package com.example.plugins
+package com.example.configuration
 
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.plugins.openapi.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
+import io.ktor.server.plugins.forwardedheaders.*
 
 fun Application.configureHTTP() {
     install(CORS) {
@@ -17,7 +15,6 @@ fun Application.configureHTTP() {
         allowHeader("MyCustomHeader")
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
-    routing {
-        openAPI(path = "openapi")
-    }
+    install(ForwardedHeaders) // WARNING: for security, do not include this if not behind a reverse proxy
+    install(XForwardedHeaders) // WARNING: for security, do not include this if not behind a reverse proxy
 }
