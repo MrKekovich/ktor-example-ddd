@@ -1,10 +1,14 @@
-<h1 align="center">
-   Ktor: A DDD Example Project
-</h1>
+<h1 align="center">Domain-Driven Design Example Project</h1>
+
+<p align="center">
+<a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/kotlin-2.0.0-blue.svg?logo=kotlin" alt="Kotlin 2.0.0"></a>
+<a href="https://ktor.io/"><img src="https://img.shields.io/badge/ktor-2.3.12-blue.svg?logo=ktor" alt="Ktor 2.3.12"></a>
+<img src="https://img.shields.io/badge/version-1.0.0-g.svg" alt="">
+</p>
 
 ---
 
-Welcome to the Ktor DDD Example API, a Domain-Driven Design (DDD) example project using Ktor and best practices!
+**Welcome to the Ktor DDD Example API, a Domain-Driven Design (DDD) example project using Ktor and best practices!**
 
 ## 🌟 Overview
 
@@ -22,7 +26,7 @@ concerns, and robust error handling.
 
 ## 💻 Tech Stack
 
-- 🗄️ Ktor: Lightweight, flexible web framework for Kotlin
+- 🗄️ Ktor 2.3.12: Lightweight, flexible web framework for Kotlin
 - 🔐 Authentication: JWT-based authentication with Keycloak
 - 📊 Serialization: Kotlinx Serialization
 - 💉 Dependency Injection: Koin
@@ -33,7 +37,6 @@ concerns, and robust error handling.
 ## 📁 Project Structure
 
 The project follows a DDD-inspired structure:
-
 ```
 src
 ├── main
@@ -42,46 +45,16 @@ src
 │   │       └── example
 │   │           ├── Application.kt
 │   │           ├── configuration
-│   │           │   ├── Database.kt
-│   │           │   ├── HTTP.kt
-│   │           │   ├── Koin.kt
-│   │           │   ├── Monitoring.kt
-│   │           │   ├── Routing.kt
-│   │           │   ├── Security.kt
-│   │           │   ├── Serialization.kt
-│   │           │   └── Validation.kt
 │   │           ├── exceptions
-│   │           │   ├── EnvironmentException.kt
-│   │           │   └── ForbiddenException.kt
 │   │           ├── post
-│   │           │   ├── PostEntity.kt
-│   │           │   ├── PostRoutes.kt
 │   │           │   ├── dto
-│   │           │   │   ├── PostRq.kt
-│   │           │   │   └── PostRs.kt
 │   │           │   ├── repository
-│   │           │   │   ├── PostDaoRepository.kt
-│   │           │   │   └── PostRepository.kt
 │   │           │   ├── schema
-│   │           │   │   ├── PostDao.kt
-│   │           │   │   └── PostTable.kt
 │   │           │   └── usecase
-│   │           │       ├── PostService.kt
-│   │           │       └── PostServiceImpl.kt
 │   │           ├── shared
-│   │           │   ├── IdEntity.kt
 │   │           │   ├── dto
-│   │           │   │   └── Validatable.kt
 │   │           │   └── repository
-│   │           │       ├── EntityRepository.kt
-│   │           │       └── IdEntityRepository.kt
 │   │           └── utils
-│   │               ├── Aliases.kt
-│   │               ├── Environment.kt
-│   │               ├── ErrorMessages.kt
-│   │               ├── ErrorResponse.kt
-│   │               ├── HelperFunctions.kt
-│   │               └── UUIDSerializer.kt
 │   └── resources
 │       ├── logback.xml
 │       └── openapi
@@ -92,17 +65,9 @@ src
             └── example
                 ├── ApplicationTest.kt
                 ├── configuration
-                │   ├── TestKoin.kt
-                │   └── TestSecurity.kt
                 ├── post
-                │   ├── PostRoutesTest.kt
-                │   └── repository
-                │       └── PostInMemoryRepository.kt
                 ├── shared
-                │   └── repository
-                │       └── InMemoryRepository.kt
                 └── utils
-                    └── HttpClient.kt
 ```
 
 ## 🚀 Getting Started
