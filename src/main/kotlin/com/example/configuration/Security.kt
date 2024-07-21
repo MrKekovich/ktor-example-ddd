@@ -1,6 +1,7 @@
 package com.example.configuration
 
 import com.auth0.jwk.Jwk
+import com.auth0.jwk.JwkProvider
 import com.auth0.jwk.JwkProviderBuilder
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -22,20 +23,20 @@ import java.security.interfaces.RSAPublicKey
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-private val kcHost = Environment["KEYCLOAK_HOST"]
-private val kcPort = Environment["KEYCLOAK_PORT"]
-private val kcRealm = Environment["KEYCLOAK_REALM"]
-
-private val keycloakUrl = URL("http://$kcHost:$kcPort/realms/$kcRealm/protocol/openid-connect/certs")
-
-private val provider = JwkProviderBuilder(keycloakUrl)
-    .cached(10, 24, TimeUnit.HOURS)
-    .build()
-
 fun Application.configureSecurity() {
+    val kcHost = Environment["KEYCLOAK_HOST"]
+    val kcPort = Environment["KEYCLOAK_PORT"]
+    val kcRealm = Environment["KEYCLOAK_REALM"]
+
+    val keycloakUrl = URL("http://$kcHost:$kcPort/realms/$kcRealm/protocol/openid-connect/certs")
+
+    val provider = JwkProviderBuilder(keycloakUrl)
+        .cached(10, 24, TimeUnit.HOURS)
+        .build()
+
     install(Authentication) {
         jwt {
-            verifier(::verify)
+            verifier { verify(it, provider) }
 
             validate {
                 runCatching { it.payload.toUserPrincipal() }.getOrNull()
@@ -59,7 +60,7 @@ data class UserPrincipal(
     fun hasRoles(vararg requiredRoles: String): Boolean = roles.containsAll(requiredRoles.toSet())
 }
 
-private fun verify(header: HttpAuthHeader): JWTVerifier? {
+private fun verify(header: HttpAuthHeader, provider: JwkProvider): JWTVerifier? {
     val rawToken = header.toString()
     if (!rawToken.contains("Bearer ")) {
         throw AuthenticationException("The token must be of the 'Bearer' type")
@@ -77,7 +78,7 @@ private fun verify(header: HttpAuthHeader): JWTVerifier? {
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun Payload.toUserPrincipal(): UserPrincipal {
+fun Payload.toUserPrincipal(): UserPrincipal {
     val id = getClaim("sub").asString().toUuidOrNull()
         ?: throw IllegalArgumentException("Subject (id) is missing or is invalid UUID")
     val username: String = getClaim("preferred_username").asString()
