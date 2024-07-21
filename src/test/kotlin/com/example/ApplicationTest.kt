@@ -1,21 +1,20 @@
 package com.example
 
-import com.example.configuration.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.server.testing.*
-import kotlin.test.*
+import com.example.configuration.configureHTTP
+import com.example.configuration.configureMonitoring
+import com.example.configuration.configureRouting
+import com.example.configuration.configureSerialization
+import com.example.configuration.configureTestKoin
+import com.example.configuration.configureTestSecurity
+import com.example.configuration.configureValidation
+import io.ktor.server.application.Application
 
-class ApplicationTest {
-    @Test
-    fun testRoot() = testApplication {
-        application {
-            configureRouting()
-        }
-        client.get("/").apply {
-            assertEquals(HttpStatusCode.OK, status)
-            assertEquals("Hello World!", bodyAsText())
-        }
-    }
+fun Application.testModule() {
+    configureTestKoin()
+    configureTestSecurity()
+    configureHTTP()
+    configureMonitoring()
+    configureSerialization()
+    configureRouting()
+    configureValidation()
 }
