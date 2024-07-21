@@ -1,0 +1,8 @@
+openapi: "3.1.0"
+info:
+  title: "ktor_example_ddd API"
+  description: "ktor_example_ddd API"
+  version: "1.0.0"
+servers:
+- url: "https://ktor_example_ddd"
+paths: {}
