@@ -1,0 +1,1183 @@
+Index: src/main/kotlin/com/example/plugins/CitySchema.kt
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/CitySchema.kt b/src/main/kotlin/com/example/plugins/CitySchema.kt
+deleted file mode 100644
+--- a/src/main/kotlin/com/example/plugins/CitySchema.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ /dev/null	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
+@@ -1,74 +0,0 @@
+-package com.example.plugins
+-
+-import kotlinx.coroutines.*
+-import kotlinx.serialization.Serializable
+-import java.sql.Connection
+-import java.sql.Statement
+-
+-@Serializable
+-data class City(val name: String, val population: Int)
+-class CityService(private val connection: Connection) {
+-    companion object {
+-        private const val CREATE_TABLE_CITIES =
+-            "CREATE TABLE CITIES (ID SERIAL PRIMARY KEY, NAME VARCHAR(255), POPULATION INT);"
+-        private const val SELECT_CITY_BY_ID = "SELECT name, population FROM cities WHERE id = ?"
+-        private const val INSERT_CITY = "INSERT INTO cities (name, population) VALUES (?, ?)"
+-        private const val UPDATE_CITY = "UPDATE cities SET name = ?, population = ? WHERE id = ?"
+-        private const val DELETE_CITY = "DELETE FROM cities WHERE id = ?"
+-
+-    }
+-
+-    init {
+-        val statement = connection.createStatement()
+-        statement.executeUpdate(CREATE_TABLE_CITIES)
+-    }
+-
+-    private var newCityId = 0
+-
+-    // Create new city
+-    suspend fun create(city: City): Int = withContext(Dispatchers.IO) {
+-        val statement = connection.prepareStatement(INSERT_CITY, Statement.RETURN_GENERATED_KEYS)
+-        statement.setString(1, city.name)
+-        statement.setInt(2, city.population)
+-        statement.executeUpdate()
+-
+-        val generatedKeys = statement.generatedKeys
+-        if (generatedKeys.next()) {
+-            return@withContext generatedKeys.getInt(1)
+-        } else {
+-            throw Exception("Unable to retrieve the id of the newly inserted city")
+-        }
+-    }
+-
+-    // Read a city
+-    suspend fun read(id: Int): City = withContext(Dispatchers.IO) {
+-        val statement = connection.prepareStatement(SELECT_CITY_BY_ID)
+-        statement.setInt(1, id)
+-        val resultSet = statement.executeQuery()
+-
+-        if (resultSet.next()) {
+-            val name = resultSet.getString("name")
+-            val population = resultSet.getInt("population")
+-            return@withContext City(name, population)
+-        } else {
+-            throw Exception("Record not found")
+-        }
+-    }
+-
+-    // Update a city
+-    suspend fun update(id: Int, city: City) = withContext(Dispatchers.IO) {
+-        val statement = connection.prepareStatement(UPDATE_CITY)
+-        statement.setString(1, city.name)
+-        statement.setInt(2, city.population)
+-        statement.setInt(3, id)
+-        statement.executeUpdate()
+-    }
+-
+-    // Delete a city
+-    suspend fun delete(id: Int) = withContext(Dispatchers.IO) {
+-        val statement = connection.prepareStatement(DELETE_CITY)
+-        statement.setInt(1, id)
+-        statement.executeUpdate()
+-    }
+-}
+-
+Index: src/main/kotlin/com/example/plugins/Databases.kt
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/Databases.kt b/src/main/kotlin/com/example/plugins/Databases.kt
+deleted file mode 100644
+--- a/src/main/kotlin/com/example/plugins/Databases.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ /dev/null	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
+@@ -1,126 +0,0 @@
+-package com.example.plugins
+-
+-import io.ktor.http.*
+-import io.ktor.server.application.*
+-import io.ktor.server.request.*
+-import io.ktor.server.response.*
+-import io.ktor.server.routing.*
+-import java.sql.*
+-import kotlinx.coroutines.*
+-import org.jetbrains.exposed.sql.*
+-
+-fun Application.configureDatabases() {
+-    val database = Database.connect(
+-        url = "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",
+-        user = "root",
+-        driver = "org.h2.Driver",
+-        password = ""
+-    )
+-    val dbConnection: Connection = connectToPostgres(embedded = true)
+-    val cityService = CityService(dbConnection)
+-
+-    routing {
+-
+-        // Create city
+-        post("/cities") {
+-            val city = call.receive<City>()
+-            val id = cityService.create(city)
+-            call.respond(HttpStatusCode.Created, id)
+-        }
+-
+-        // Read city
+-        get("/cities/{id}") {
+-            val id = call.parameters["id"]?.toInt() ?: throw IllegalArgumentException("Invalid ID")
+-            try {
+-                val city = cityService.read(id)
+-                call.respond(HttpStatusCode.OK, city)
+-            } catch (e: Exception) {
+-                call.respond(HttpStatusCode.NotFound)
+-            }
+-        }
+-
+-        // Update city
+-        put("/cities/{id}") {
+-            val id = call.parameters["id"]?.toInt() ?: throw IllegalArgumentException("Invalid ID")
+-            val user = call.receive<City>()
+-            cityService.update(id, user)
+-            call.respond(HttpStatusCode.OK)
+-        }
+-
+-        // Delete city
+-        delete("/cities/{id}") {
+-            val id = call.parameters["id"]?.toInt() ?: throw IllegalArgumentException("Invalid ID")
+-            cityService.delete(id)
+-            call.respond(HttpStatusCode.OK)
+-        }
+-    }
+-    val userService = UserService(database)
+-    routing {
+-        // Create user
+-        post("/users") {
+-            val user = call.receive<ExposedUser>()
+-            val id = userService.create(user)
+-            call.respond(HttpStatusCode.Created, id)
+-        }
+-
+-        // Read user
+-        get("/users/{id}") {
+-            val id = call.parameters["id"]?.toInt() ?: throw IllegalArgumentException("Invalid ID")
+-            val user = userService.read(id)
+-            if (user != null) {
+-                call.respond(HttpStatusCode.OK, user)
+-            } else {
+-                call.respond(HttpStatusCode.NotFound)
+-            }
+-        }
+-
+-        // Update user
+-        put("/users/{id}") {
+-            val id = call.parameters["id"]?.toInt() ?: throw IllegalArgumentException("Invalid ID")
+-            val user = call.receive<ExposedUser>()
+-            userService.update(id, user)
+-            call.respond(HttpStatusCode.OK)
+-        }
+-
+-        // Delete user
+-        delete("/users/{id}") {
+-            val id = call.parameters["id"]?.toInt() ?: throw IllegalArgumentException("Invalid ID")
+-            userService.delete(id)
+-            call.respond(HttpStatusCode.OK)
+-        }
+-    }
+-}
+-
+-/**
+- * Makes a connection to a Postgres database.
+- *
+- * In order to connect to your running Postgres process,
+- * please specify the following parameters in your configuration file:
+- * - postgres.url -- Url of your running database process.
+- * - postgres.user -- Username for database connection
+- * - postgres.password -- Password for database connection
+- *
+- * If you don't have a database process running yet, you may need to [download]((https://www.postgresql.org/download/))
+- * and install Postgres and follow the instructions [here](https://postgresapp.com/).
+- * Then, you would be able to edit your url,  which is usually "jdbc:postgresql://host:port/database", as well as
+- * user and password values.
+- *
+- *
+- * @param embedded -- if [true] defaults to an embedded database for tests that runs locally in the same process.
+- * In this case you don't have to provide any parameters in configuration file, and you don't have to run a process.
+- *
+- * @return [Connection] that represent connection to the database. Please, don't forget to close this connection when
+- * your application shuts down by calling [Connection.close]
+- * */
+-fun Application.connectToPostgres(embedded: Boolean): Connection {
+-    Class.forName("org.postgresql.Driver")
+-    if (embedded) {
+-        return DriverManager.getConnection("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "root", "")
+-    } else {
+-        val url = environment.config.property("postgres.url").getString()
+-        val user = environment.config.property("postgres.user").getString()
+-        val password = environment.config.property("postgres.password").getString()
+-
+-        return DriverManager.getConnection(url, user, password)
+-    }
+-}
+Index: resources/openapi/documentation.yaml
+===================================================================
+diff --git a/resources/openapi/documentation.yaml b/resources/openapi/documentation.yaml
+deleted file mode 100644
+--- a/resources/openapi/documentation.yaml	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ /dev/null	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
+@@ -1,8 +0,0 @@
+-openapi: "3.1.0"
+-info:
+-  title: "ktor_example_ddd API"
+-  description: "ktor_example_ddd API"
+-  version: "1.0.0"
+-servers:
+-- url: "https://ktor_example_ddd"
+-paths: {}
+\ No newline at end of file
+Index: src/main/kotlin/com/example/plugins/Routing.kt
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/Routing.kt b/src/main/kotlin/com/example/plugins/Routing.kt
+deleted file mode 100644
+--- a/src/main/kotlin/com/example/plugins/Routing.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ /dev/null	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
+@@ -1,20 +0,0 @@
+-package com.example.plugins
+-
+-import io.ktor.http.*
+-import io.ktor.server.application.*
+-import io.ktor.server.plugins.statuspages.*
+-import io.ktor.server.response.*
+-import io.ktor.server.routing.*
+-
+-fun Application.configureRouting() {
+-    install(StatusPages) {
+-        exception<Throwable> { call, cause ->
+-            call.respondText(text = "500: $cause", status = HttpStatusCode.InternalServerError)
+-        }
+-    }
+-    routing {
+-        get("/") {
+-            call.respondText("Hello World!")
+-        }
+-    }
+-}
+Index: src/main/kotlin/com/example/plugins/Security.kt
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/Security.kt b/src/main/kotlin/com/example/plugins/Security.kt
+deleted file mode 100644
+--- a/src/main/kotlin/com/example/plugins/Security.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ /dev/null	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
+@@ -1,31 +0,0 @@
+-package com.example.plugins
+-
+-import com.auth0.jwt.JWT
+-import com.auth0.jwt.algorithms.Algorithm
+-import io.ktor.server.application.*
+-import io.ktor.server.auth.*
+-import io.ktor.server.auth.jwt.*
+-import io.ktor.server.response.*
+-
+-fun Application.configureSecurity() {
+-    // Please read the jwt property from the config file if you are using EngineMain
+-    val jwtAudience = "jwt-audience"
+-    val jwtDomain = "https://jwt-provider-domain/"
+-    val jwtRealm = "ktor sample app"
+-    val jwtSecret = "secret"
+-    authentication {
+-        jwt {
+-            realm = jwtRealm
+-            verifier(
+-                JWT
+-                    .require(Algorithm.HMAC256(jwtSecret))
+-                    .withAudience(jwtAudience)
+-                    .withIssuer(jwtDomain)
+-                    .build()
+-            )
+-            validate { credential ->
+-                if (credential.payload.audience.contains(jwtAudience)) JWTPrincipal(credential.payload) else null
+-            }
+-        }
+-    }
+-}
+Index: src/main/kotlin/com/example/plugins/UsersSchema.kt
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/UsersSchema.kt b/src/main/kotlin/com/example/plugins/UsersSchema.kt
+deleted file mode 100644
+--- a/src/main/kotlin/com/example/plugins/UsersSchema.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ /dev/null	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
+@@ -1,60 +0,0 @@
+-package com.example.plugins
+-
+-import org.jetbrains.exposed.sql.transactions.transaction
+-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+-import kotlinx.serialization.Serializable
+-import kotlinx.coroutines.Dispatchers
+-import org.jetbrains.exposed.sql.*
+-
+-@Serializable
+-data class ExposedUser(val name: String, val age: Int)
+-class UserService(private val database: Database) {
+-    object Users : Table() {
+-        val id = integer("id").autoIncrement()
+-        val name = varchar("name", length = 50)
+-        val age = integer("age")
+-
+-        override val primaryKey = PrimaryKey(id)
+-    }
+-
+-    init {
+-        transaction(database) {
+-            SchemaUtils.create(Users)
+-        }
+-    }
+-
+-    suspend fun <T> dbQuery(block: suspend () -> T): T =
+-        newSuspendedTransaction(Dispatchers.IO) { block() }
+-
+-    suspend fun create(user: ExposedUser): Int = dbQuery {
+-        Users.insert {
+-            it[name] = user.name
+-            it[age] = user.age
+-        }[Users.id]
+-    }
+-
+-    suspend fun read(id: Int): ExposedUser? {
+-        return dbQuery {
+-            Users.select { Users.id eq id }
+-                .map { ExposedUser(it[Users.name], it[Users.age]) }
+-                .singleOrNull()
+-        }
+-    }
+-
+-    suspend fun update(id: Int, user: ExposedUser) {
+-        dbQuery {
+-            Users.update({ Users.id eq id }) {
+-                it[name] = user.name
+-                it[age] = user.age
+-            }
+-        }
+-    }
+-
+-    suspend fun delete(id: Int) {
+-        dbQuery {
+-            Users.deleteWhere { Users.id.eq(id) }
+-        }
+-    }
+-}
+-
+Index: src/main/kotlin/com/example/plugins/Serialization.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/Serialization.kt b/src/main/kotlin/com/example/configuration/Serialization.kt
+rename from src/main/kotlin/com/example/plugins/Serialization.kt
+rename to src/main/kotlin/com/example/configuration/Serialization.kt
+--- a/src/main/kotlin/com/example/plugins/Serialization.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ b/src/main/kotlin/com/example/configuration/Serialization.kt	(date 1721543407072)
+@@ -1,18 +1,11 @@
+-package com.example.plugins
++package com.example.configuration
+ 
+ import io.ktor.serialization.kotlinx.json.*
+ import io.ktor.server.application.*
+ import io.ktor.server.plugins.contentnegotiation.*
+-import io.ktor.server.response.*
+-import io.ktor.server.routing.*
+ 
+ fun Application.configureSerialization() {
+     install(ContentNegotiation) {
+         json()
+     }
+-    routing {
+-        get("/json/kotlinx-serialization") {
+-            call.respond(mapOf("hello" to "world"))
+-        }
+-    }
+ }
+Index: src/main/kotlin/com/example/configuration/Validation.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/configuration/Validation.kt b/src/main/kotlin/com/example/configuration/Validation.kt
+new file mode 100644
+--- /dev/null	(date 1721543921127)
++++ b/src/main/kotlin/com/example/configuration/Validation.kt	(date 1721543921127)
+@@ -0,0 +1,10 @@
++package com.example.configuration
++
++import io.ktor.server.application.Application
++import io.ktor.server.application.install
++import io.ktor.server.plugins.requestvalidation.RequestValidation
++
++fun Application.configureValidation() {
++    install(RequestValidation) {
++    }
++}
+\ No newline at end of file
+Index: gradle.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>kotlin.code.style=official\r\nktor_version=2.3.12\r\nkotlin_version=2.0.0\r\nlogback_version=1.4.14\r\nexposed_version=0.41.1\r\nh2_version=2.1.214\r\npostgres_version=42.5.1\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>ISO-8859-1
+===================================================================
+diff --git a/gradle.properties b/gradle.properties
+--- a/gradle.properties	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ b/gradle.properties	(date 1721543320184)
+@@ -1,7 +1,8 @@
+ kotlin.code.style=official
+-ktor_version=2.3.12
+-kotlin_version=2.0.0
+-logback_version=1.4.14
+-exposed_version=0.41.1
+-h2_version=2.1.214
+-postgres_version=42.5.1
++ktorVersion=2.3.12
++koinKtor=3.5.6
++kotlinVersion=2.0.0
++logbackVersion=1.4.14
++exposedVersion=0.52.0
++h2Version=2.1.214
++postgresVersion=42.7.3
+Index: src/main/kotlin/com/example/exceptions/ForbiddenException.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/exceptions/ForbiddenException.kt b/src/main/kotlin/com/example/exceptions/ForbiddenException.kt
+new file mode 100644
+--- /dev/null	(date 1721543921131)
++++ b/src/main/kotlin/com/example/exceptions/ForbiddenException.kt	(date 1721543921131)
+@@ -0,0 +1,3 @@
++package com.example.exceptions
++
++class ForbiddenException(message: String) : Throwable(message)
+\ No newline at end of file
+Index: src/main/kotlin/com/example/utils/ErrorMessages.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/utils/ErrorMessages.kt b/src/main/kotlin/com/example/utils/ErrorMessages.kt
+new file mode 100644
+--- /dev/null	(date 1721543478474)
++++ b/src/main/kotlin/com/example/utils/ErrorMessages.kt	(date 1721543478474)
+@@ -0,0 +1,6 @@
++package com.example.utils
++
++import java.util.*
++
++object ErrorMessages {
++}
+\ No newline at end of file
+Index: src/main/kotlin/com/example/utils/HelperFunctions.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/utils/HelperFunctions.kt b/src/main/kotlin/com/example/utils/HelperFunctions.kt
+new file mode 100644
+--- /dev/null	(date 1721543695739)
++++ b/src/main/kotlin/com/example/utils/HelperFunctions.kt	(date 1721543695739)
+@@ -0,0 +1,55 @@
++package com.example.utils
++
++import Violation
++import io.ktor.server.application.ApplicationCall
++import io.ktor.server.application.call
++import io.ktor.server.plugins.BadRequestException
++import io.ktor.server.plugins.requestvalidation.ValidationResult
++import io.ktor.util.pipeline.PipelineContext
++import org.jetbrains.exposed.dao.id.IdTable
++import org.jetbrains.exposed.sql.Op
++import org.jetbrains.exposed.sql.SqlExpressionBuilder
++import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
++import org.jetbrains.exposed.sql.intLiteral
++import org.jetbrains.exposed.sql.select
++import org.jetbrains.exposed.sql.selectAll
++import java.util.*
++
++fun MutableList<Violation>.toValidationResult(): ValidationResult = when {
++    isEmpty() -> ValidationResult.Valid
++    else -> ValidationResult.Invalid(map { it.message })
++}
++
++fun <T> T.toSuccessResult(): Result<T> = Result.success(this)
++
++fun PipelineContext<Unit, ApplicationCall>.getUUID(pathParameterName: String): Result<UUID?> {
++    val pathParameter = call.parameters[pathParameterName]
++        ?: return Result.success(null)
++
++    val uuid: UUID = runCatching { UUID.fromString(pathParameter) }.getOrElse {
++        return Result.failure(BadRequestException("Invalid $pathParameterName: '$pathParameter' Must be a valid UUID."))
++    }
++
++    return Result.success(uuid)
++}
++
++fun String.toUuidOrNull(): UUID? = runCatching { UUID.fromString(this) }.getOrNull()
++
++/**
++ * ### !Requires `transaction` context!
++ * Checks if an [id] exists in a [table].
++ * This operation is more optimized than `DAO.findById(id)`.
++ *
++ * Generated SQL query (?)
++ * ```sql
++ * SELECT 1 FROM ArticleTable WHERE id = ? LIMIT 1
++ * ```
++ *
++ * @param ID type of the id. Must be Comparable.
++ * @param T type of the [IdTable] that takes [ID] as generic parameter.
++ * @param id the id to check
++ * @param table the [IdTable] to check in.
++ * @return `true` if the [id] exists in the [table], `false` otherwise.
++ */
++fun <ID : Comparable<ID>, T : IdTable<ID>> exists(id: ID, table: T): Boolean =
++    table.select(intLiteral(1)).where { table.id eq id }.empty().not()
+Index: src/main/kotlin/com/example/shared/repository/EntityRepository.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/shared/repository/EntityRepository.kt b/src/main/kotlin/com/example/shared/repository/EntityRepository.kt
+new file mode 100644
+--- /dev/null	(date 1721545798325)
++++ b/src/main/kotlin/com/example/shared/repository/EntityRepository.kt	(date 1721545798325)
+@@ -0,0 +1,9 @@
++package com.example.shared.repository
++
++interface EntityRepository<ID : Any, E : Any> {
++    suspend fun save(entity: E): E
++    suspend fun findById(id: ID): E?
++    suspend fun findAll(): Collection<E>
++    suspend fun delete(id: ID): Boolean
++    suspend fun exists(id: ID): Boolean
++}
+\ No newline at end of file
+Index: src/main/kotlin/com/example/utils/UUIDSerializer.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/utils/UUIDSerializer.kt b/src/main/kotlin/com/example/utils/UUIDSerializer.kt
+new file mode 100644
+--- /dev/null	(date 1721543448694)
++++ b/src/main/kotlin/com/example/utils/UUIDSerializer.kt	(date 1721543448694)
+@@ -0,0 +1,21 @@
++package com.example.utils
++
++import kotlinx.serialization.KSerializer
++import kotlinx.serialization.descriptors.PrimitiveKind
++import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
++import kotlinx.serialization.descriptors.SerialDescriptor
++import kotlinx.serialization.encoding.Decoder
++import kotlinx.serialization.encoding.Encoder
++import java.util.UUID
++
++object UUIDSerializer : KSerializer<UUID> {
++    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("UUID", PrimitiveKind.STRING)
++
++    override fun serialize(encoder: Encoder, value: UUID) {
++        encoder.encodeString(value.toString())
++    }
++
++    override fun deserialize(decoder: Decoder): UUID {
++        return UUID.fromString(decoder.decodeString())
++    }
++}
+\ No newline at end of file
+Index: src/main/kotlin/com/example/utils/Environment.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/utils/Environment.kt b/src/main/kotlin/com/example/utils/Environment.kt
+new file mode 100644
+--- /dev/null	(date 1721544811466)
++++ b/src/main/kotlin/com/example/utils/Environment.kt	(date 1721544811466)
+@@ -0,0 +1,24 @@
++package com.example.utils
++
++import com.example.exceptions.EnvironmentException
++
++object Environment {
++    inline operator fun <reified T> get(key: String): T = try {
++        val envVar: String = System.getenv(key)
++
++        when (T::class) {
++            String::class -> envVar as T
++            Boolean::class -> envVar.toBooleanStrict() as T
++            Int::class -> envVar.toInt() as T
++            else -> throw EnvironmentException("Unsupported type: ${T::class.simpleName}")
++        }
++    } catch (nullPtrException: NullPointerException) {
++        throw EnvironmentException("Missing environment variable: $key")
++    } catch (illegalArgException: IllegalArgumentException) {
++        throw EnvironmentException("Invalid environment variable type: $key != ${T::class.simpleName}")
++    } catch (numberFormatException: NumberFormatException) {
++        throw EnvironmentException("Invalid environment variable type: $key != ${T::class.simpleName}")
++    }
++
++    operator fun get(key: String): String = get<String>(key)
++}
+Index: src/main/kotlin/com/example/utils/Aliases.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/utils/Aliases.kt b/src/main/kotlin/com/example/utils/Aliases.kt
+new file mode 100644
+--- /dev/null	(date 1721543478484)
++++ b/src/main/kotlin/com/example/utils/Aliases.kt	(date 1721543478484)
+@@ -0,0 +1,4 @@
++package com.example.utils
++
++typealias KotlinInstant = kotlinx.datetime.Instant
++typealias JavaInstant = java.time.Instant
+Index: src/main/kotlin/com/example/post/PostEntity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/post/PostEntity.kt b/src/main/kotlin/com/example/post/PostEntity.kt
+new file mode 100644
+--- /dev/null	(date 1721545951832)
++++ b/src/main/kotlin/com/example/post/PostEntity.kt	(date 1721545951832)
+@@ -0,0 +1,13 @@
++package com.example.post
++
++import com.example.shared.IdEntity
++import com.example.utils.KotlinInstant
++import java.util.UUID
++
++data class PostEntity(
++    override val id: UUID,
++    val title: String,
++    val content: String,
++    val createdAt: KotlinInstant,
++    val updatedAt: KotlinInstant,
++) : IdEntity<UUID>
+\ No newline at end of file
+Index: src/main/kotlin/com/example/Application.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example\r\n\r\nimport com.example.plugins.*\r\nimport io.ktor.server.application.*\r\nimport io.ktor.server.engine.*\r\nimport io.ktor.server.netty.*\r\n\r\nfun main() {\r\n    embeddedServer(Netty, port = 8080, host = \"0.0.0.0\", module = Application::module)\r\n        .start(wait = true)\r\n}\r\n\r\nfun Application.module() {\r\n    configureSecurity()\r\n    configureHTTP()\r\n    configureSerialization()\r\n    configureDatabases()\r\n    configureRouting()\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/Application.kt b/src/main/kotlin/com/example/Application.kt
+--- a/src/main/kotlin/com/example/Application.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ b/src/main/kotlin/com/example/Application.kt	(date 1721544031255)
+@@ -1,6 +1,13 @@
+ package com.example
+ 
+-import com.example.plugins.*
++import com.example.configuration.configureDatabase
++import com.example.configuration.configureHTTP
++import com.example.configuration.configureKoin
++import com.example.configuration.configureMonitoring
++import com.example.configuration.configureRouting
++import com.example.configuration.configureSecurity
++import com.example.configuration.configureSerialization
++import com.example.configuration.configureValidation
+ import io.ktor.server.application.*
+ import io.ktor.server.engine.*
+ import io.ktor.server.netty.*
+@@ -11,9 +18,12 @@
+ }
+ 
+ fun Application.module() {
++    configureKoin()
++    configureDatabase()
+     configureSecurity()
+     configureHTTP()
++    configureMonitoring()
+     configureSerialization()
+-    configureDatabases()
+     configureRouting()
++    configureValidation()
+ }
+Index: src/test/kotlin/com/example/ApplicationTest.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example\r\n\r\nimport com.example.plugins.*\r\nimport io.ktor.client.request.*\r\nimport io.ktor.client.statement.*\r\nimport io.ktor.http.*\r\nimport io.ktor.server.testing.*\r\nimport kotlin.test.*\r\n\r\nclass ApplicationTest {\r\n    @Test\r\n    fun testRoot() = testApplication {\r\n        application {\r\n            configureRouting()\r\n        }\r\n        client.get(\"/\").apply {\r\n            assertEquals(HttpStatusCode.OK, status)\r\n            assertEquals(\"Hello World!\", bodyAsText())\r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/kotlin/com/example/ApplicationTest.kt b/src/test/kotlin/com/example/ApplicationTest.kt
+--- a/src/test/kotlin/com/example/ApplicationTest.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ b/src/test/kotlin/com/example/ApplicationTest.kt	(date 1721543359023)
+@@ -1,6 +1,6 @@
+ package com.example
+ 
+-import com.example.plugins.*
++import com.example.configuration.*
+ import io.ktor.client.request.*
+ import io.ktor.client.statement.*
+ import io.ktor.http.*
+Index: src/main/kotlin/com/example/exceptions/EnvironmentException.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/exceptions/EnvironmentException.kt b/src/main/kotlin/com/example/exceptions/EnvironmentException.kt
+new file mode 100644
+--- /dev/null	(date 1721544671217)
++++ b/src/main/kotlin/com/example/exceptions/EnvironmentException.kt	(date 1721544671217)
+@@ -0,0 +1,3 @@
++package com.example.exceptions
++
++class EnvironmentException(message: String) : Exception(message)
+\ No newline at end of file
+Index: docker-compose-dev.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/docker-compose-dev.yaml b/docker-compose-dev.yaml
+new file mode 100644
+--- /dev/null	(date 1721545231903)
++++ b/docker-compose-dev.yaml	(date 1721545231903)
+@@ -0,0 +1,45 @@
++version: "3.9"
++services:
++  db:
++    image: postgres:16
++    ports:
++      - "5432:5432"
++    environment:
++      - POSTGRES_USER=postgres
++      - POSTGRES_PASSWORD=postgres
++      - POSTGRES_DB=postgres
++    volumes:
++      - ./tmp/db:/var/lib/postgresql/data
++
++  auth-db:
++    image: postgres:16
++    environment:
++      - POSTGRES_USER=postgres
++      - POSTGRES_PASSWORD=postgres
++      - POSTGRES_DB=postgres
++    volumes:
++      - ./tmp/auth-db:/var/lib/postgresql/data
++
++  auth:
++    image: quay.io/keycloak/keycloak:25.0.1
++    ports:
++      - "8180:8080"
++    environment:
++      KEYCLOAK_ADMIN: admin
++      KEYCLOAK_ADMIN_PASSWORD: admin
++      KC_DB: postgres
++      KC_DB_URL: "jdbc:postgresql://auth-db:5432/postgres"
++      KC_DB_PASSWORD: postgres
++      KC_DB_USERNAME: postgres
++      KC_DB_SCHEMA: public
++    command:
++      - start-dev
++      - --import-realm
++      - "-Dkeycloak.migration.action=import"
++      - "-Dkeycloak.migration.provider=dir"
++      - "-Dkeycloak.migration.dir=/opt/keycloak/data/import"
++      - "-Dkeycloak.migration.strategy=OVERWRITE_EXISTING"
++    volumes:
++      - ./realms:/opt/keycloak/data/import
++
++    restart: always
+\ No newline at end of file
+Index: src/main/kotlin/com/example/configuration/Database.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/configuration/Database.kt b/src/main/kotlin/com/example/configuration/Database.kt
+new file mode 100644
+--- /dev/null	(date 1721543695759)
++++ b/src/main/kotlin/com/example/configuration/Database.kt	(date 1721543695759)
+@@ -0,0 +1,28 @@
++package com.example.configuration
++
++import com.example.utils.Environment
++import org.jetbrains.exposed.sql.Database
++import org.jetbrains.exposed.sql.SchemaUtils
++import org.jetbrains.exposed.sql.transactions.transaction
++
++fun configureDatabase() {
++    val host: String = Environment["POSTGRES_HOST"]
++    val port: String = Environment["POSTGRES_PORT"]
++    val user: String = Environment["POSTGRES_USER"]
++    val password: String = Environment["POSTGRES_PASSWORD"]
++    val database: String = Environment["POSTGRES_DATABASE"]
++    val driver = "org.postgresql.Driver"
++
++    val db = Database.connect(
++        driver = driver,
++        url = "jdbc:postgresql://$host:$port/$database",
++        user = user,
++        password = password
++    )
++
++    transaction(db) {
++        SchemaUtils.createMissingTablesAndColumns(
++
++        )
++    }
++}
+Index: src/main/kotlin/com/example/plugins/HTTP.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/plugins/HTTP.kt b/src/main/kotlin/com/example/configuration/HTTP.kt
+rename from src/main/kotlin/com/example/plugins/HTTP.kt
+rename to src/main/kotlin/com/example/configuration/HTTP.kt
+--- a/src/main/kotlin/com/example/plugins/HTTP.kt	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ b/src/main/kotlin/com/example/configuration/HTTP.kt	(date 1721543407105)
+@@ -1,11 +1,9 @@
+-package com.example.plugins
++package com.example.configuration
+ 
+ import io.ktor.http.*
+ import io.ktor.server.application.*
+ import io.ktor.server.plugins.cors.routing.*
+-import io.ktor.server.plugins.openapi.*
+-import io.ktor.server.response.*
+-import io.ktor.server.routing.*
++import io.ktor.server.plugins.forwardedheaders.*
+ 
+ fun Application.configureHTTP() {
+     install(CORS) {
+@@ -17,7 +15,6 @@
+         allowHeader("MyCustomHeader")
+         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
+     }
+-    routing {
+-        openAPI(path = "openapi")
+-    }
++    install(ForwardedHeaders) // WARNING: for security, do not include this if not behind a reverse proxy
++    install(XForwardedHeaders) // WARNING: for security, do not include this if not behind a reverse proxy
+ }
+Index: src/main/kotlin/com/example/configuration/Koin.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/configuration/Koin.kt b/src/main/kotlin/com/example/configuration/Koin.kt
+new file mode 100644
+--- /dev/null	(date 1721543695745)
++++ b/src/main/kotlin/com/example/configuration/Koin.kt	(date 1721543695745)
+@@ -0,0 +1,20 @@
++package com.example.configuration
++
++import io.ktor.server.application.Application
++import io.ktor.server.application.install
++import org.koin.dsl.module
++import org.koin.ktor.plugin.Koin
++import org.koin.logger.slf4jLogger
++
++val repositoryModule = module {
++}
++
++val serviceModule = module {
++}
++
++fun Application.configureKoin() {
++    install(Koin) {
++        slf4jLogger()
++        modules(repositoryModule, serviceModule)
++    }
++}
+Index: build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>val kotlin_version: String by project\r\nval logback_version: String by project\r\nval exposed_version: String by project\r\nval h2_version: String by project\r\nval postgres_version: String by project\r\n\r\nplugins {\r\n    kotlin(\"jvm\") version \"2.0.0\"\r\n    id(\"io.ktor.plugin\") version \"2.3.12\"\r\n    id(\"org.jetbrains.kotlin.plugin.serialization\") version \"2.0.0\"\r\n}\r\n\r\ngroup = \"com.example\"\r\nversion = \"0.0.1\"\r\n\r\napplication {\r\n    mainClass.set(\"com.example.ApplicationKt\")\r\n\r\n    val isDevelopment: Boolean = project.ext.has(\"development\")\r\n    applicationDefaultJvmArgs = listOf(\"-Dio.ktor.development=$isDevelopment\")\r\n}\r\n\r\nrepositories {\r\n    mavenCentral()\r\n}\r\n\r\ndependencies {\r\n    implementation(\"io.ktor:ktor-server-core-jvm\")\r\n    implementation(\"io.ktor:ktor-server-auth-jvm\")\r\n    implementation(\"io.ktor:ktor-server-auth-jwt-jvm\")\r\n    implementation(\"io.ktor:ktor-server-host-common-jvm\")\r\n    implementation(\"io.ktor:ktor-server-status-pages-jvm\")\r\n    implementation(\"io.ktor:ktor-server-cors-jvm\")\r\n    implementation(\"io.ktor:ktor-server-openapi\")\r\n    implementation(\"io.ktor:ktor-server-content-negotiation-jvm\")\r\n    implementation(\"io.ktor:ktor-serialization-kotlinx-json-jvm\")\r\n    implementation(\"org.jetbrains.exposed:exposed-core:$exposed_version\")\r\n    implementation(\"org.jetbrains.exposed:exposed-jdbc:$exposed_version\")\r\n    implementation(\"com.h2database:h2:$h2_version\")\r\n    implementation(\"org.postgresql:postgresql:$postgres_version\")\r\n    implementation(\"io.ktor:ktor-server-netty-jvm\")\r\n    implementation(\"ch.qos.logback:logback-classic:$logback_version\")\r\n    testImplementation(\"io.ktor:ktor-server-tests-jvm\")\r\n    testImplementation(\"org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version\")\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build.gradle.kts b/build.gradle.kts
+--- a/build.gradle.kts	(revision 12fb6341bc67262c1928f40af3d78a9df9ae873c)
++++ b/build.gradle.kts	(date 1721543510819)
+@@ -1,8 +1,9 @@
+-val kotlin_version: String by project
+-val logback_version: String by project
+-val exposed_version: String by project
+-val h2_version: String by project
+-val postgres_version: String by project
++val kotlinVersion: String by project
++val koinKtor: String by project
++val logbackVersion: String by project
++val exposedVersion: String by project
++val h2Version: String by project
++val postgresVersion: String by project
+ 
+ plugins {
+     kotlin("jvm") version "2.0.0"
+@@ -22,24 +23,54 @@
+ 
+ repositories {
+     mavenCentral()
++    maven { url = uri("https://jitpack.io") }
+ }
+ 
+ dependencies {
++    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
++
++    implementation("io.ktor:ktor-client-core-jvm")
++    implementation("io.ktor:ktor-client-apache-jvm")
+     implementation("io.ktor:ktor-server-core-jvm")
++    implementation("io.ktor:ktor-server-host-common-jvm")
++    implementation("io.ktor:ktor-server-netty-jvm")
++    implementation("io.ktor:ktor-server-openapi-jvm")
++
++    implementation("io.insert-koin:koin-ktor:$koinKtor")
++    implementation("io.insert-koin:koin-logger-slf4j:$koinKtor")
++
++    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
++    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
++    implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
++    implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
++    implementation("com.h2database:h2:$h2Version")
++    implementation("org.postgresql:postgresql:$postgresVersion")
++
+     implementation("io.ktor:ktor-server-auth-jvm")
+     implementation("io.ktor:ktor-server-auth-jwt-jvm")
+-    implementation("io.ktor:ktor-server-host-common-jvm")
+-    implementation("io.ktor:ktor-server-status-pages-jvm")
++
+     implementation("io.ktor:ktor-server-cors-jvm")
+-    implementation("io.ktor:ktor-server-openapi")
++    implementation("io.ktor:ktor-server-forwarded-header-jvm")
+     implementation("io.ktor:ktor-server-content-negotiation-jvm")
+     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
+-    implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
+-    implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
+-    implementation("com.h2database:h2:$h2_version")
+-    implementation("org.postgresql:postgresql:$postgres_version")
+-    implementation("io.ktor:ktor-server-netty-jvm")
+-    implementation("ch.qos.logback:logback-classic:$logback_version")
++    implementation("io.ktor:ktor-server-request-validation-jvm")
++
++    implementation("io.ktor:ktor-server-resources-jvm")
++    implementation("io.ktor:ktor-server-status-pages-jvm")
++    implementation("io.ktor:ktor-server-call-logging-jvm")
++    implementation("ch.qos.logback:logback-classic:$logbackVersion")
++
++
++    implementation("com.github.MrKekovich:kvalid-dsl:0.1.2")
++
+     testImplementation("io.ktor:ktor-server-tests-jvm")
+-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
++    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
++}
++
++tasks.jar {
++    manifest {
++        attributes(
++            "Main-Class" to "ru.netrunner.courses.ApplicationKt"
++        )
++    }
+ }
+Index: src/main/kotlin/com/example/configuration/Monitoring.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/configuration/Monitoring.kt b/src/main/kotlin/com/example/configuration/Monitoring.kt
+new file mode 100644
+--- /dev/null	(date 1721543850037)
++++ b/src/main/kotlin/com/example/configuration/Monitoring.kt	(date 1721543850037)
+@@ -0,0 +1,11 @@
++package com.example.configuration
++
++import io.ktor.server.application.*
++import io.ktor.server.plugins.callloging.*
++import io.ktor.server.request.*
++
++fun Application.configureMonitoring() {
++    install(CallLogging) {
++        filter { call -> call.request.path().startsWith("/") }
++    }
++}
+Index: src/main/kotlin/com/example/shared/repository/IdEntityRepository.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/shared/repository/IdEntityRepository.kt b/src/main/kotlin/com/example/shared/repository/IdEntityRepository.kt
+new file mode 100644
+--- /dev/null	(date 1721545798330)
++++ b/src/main/kotlin/com/example/shared/repository/IdEntityRepository.kt	(date 1721545798330)
+@@ -0,0 +1,5 @@
++package com.example.shared.repository
++
++import com.example.shared.IdEntity
++
++interface IdEntityRepository<ID : Comparable<ID>, E : IdEntity<ID>> : EntityRepository<ID, E>
+Index: src/main/kotlin/com/example/configuration/Routing.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/configuration/Routing.kt b/src/main/kotlin/com/example/configuration/Routing.kt
+new file mode 100644
+--- /dev/null	(date 1721543921121)
++++ b/src/main/kotlin/com/example/configuration/Routing.kt	(date 1721543921121)
+@@ -0,0 +1,44 @@
++package com.example.configuration
++
++import com.example.exceptions.ForbiddenException
++import io.ktor.http.HttpStatusCode
++import io.ktor.server.application.Application
++import io.ktor.server.application.install
++import io.ktor.server.plugins.BadRequestException
++import io.ktor.server.plugins.NotFoundException
++import io.ktor.server.plugins.openapi.openAPI
++import io.ktor.server.plugins.statuspages.StatusPages
++import io.ktor.server.resources.Resources
++import io.ktor.server.response.respondText
++import io.ktor.server.routing.routing
++import org.apache.http.auth.AuthenticationException
++
++fun Application.configureRouting() {
++    install(Resources)
++
++    install(StatusPages) {
++//        exception<Throwable> { call, cause ->
++//            call.respondText(text = "500: ${cause.message}", status = HttpStatusCode.InternalServerError)
++//        }
++
++        exception<BadRequestException> { call, cause ->
++            call.respondText(text = "400: ${cause.message}", status = HttpStatusCode.BadRequest)
++        }
++
++        exception<NotFoundException> { call, cause ->
++            call.respondText(text = "404: ${cause.message}", status = HttpStatusCode.NotFound)
++        }
++
++        exception<AuthenticationException> { call, cause ->
++            call.respondText(text = "401: ${cause.message}", status = HttpStatusCode.Unauthorized)
++        }
++
++        exception<ForbiddenException> { call, cause ->
++            call.respondText(text = "403: ${cause.message}", status = HttpStatusCode.Forbidden)
++        }
++    }
++
++    routing {
++        openAPI("/openapi", "openapi/documentation.yaml")
++    }
++}
+Index: src/main/kotlin/com/example/shared/IdEntity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/shared/IdEntity.kt b/src/main/kotlin/com/example/shared/IdEntity.kt
+new file mode 100644
+--- /dev/null	(date 1721545596328)
++++ b/src/main/kotlin/com/example/shared/IdEntity.kt	(date 1721545596328)
+@@ -0,0 +1,5 @@
++package com.example.shared
++
++interface IdEntity<ID : Comparable<ID>> {
++    val id: ID
++}
+Index: src/main/kotlin/com/example/configuration/Security.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/kotlin/com/example/configuration/Security.kt b/src/main/kotlin/com/example/configuration/Security.kt
+new file mode 100644
+--- /dev/null	(date 1721543939382)
++++ b/src/main/kotlin/com/example/configuration/Security.kt	(date 1721543939382)
+@@ -0,0 +1,91 @@
++package com.example.configuration
++
++import com.auth0.jwk.Jwk
++import com.auth0.jwk.JwkProviderBuilder
++import com.auth0.jwt.JWT
++import com.auth0.jwt.algorithms.Algorithm
++import com.auth0.jwt.interfaces.DecodedJWT
++import com.auth0.jwt.interfaces.JWTVerifier
++import com.auth0.jwt.interfaces.Payload
++import com.example.exceptions.ForbiddenException
++import com.example.utils.Environment
++import com.example.utils.toUuidOrNull
++import io.ktor.http.auth.HttpAuthHeader
++import io.ktor.server.application.Application
++import io.ktor.server.application.install
++import io.ktor.server.auth.Authentication
++import io.ktor.server.auth.Principal
++import io.ktor.server.auth.jwt.jwt
++import org.apache.http.auth.AuthenticationException
++import java.net.URL
++import java.security.interfaces.RSAPublicKey
++import java.util.*
++import java.util.concurrent.TimeUnit
++
++private val kcHost = Environment["KEYCLOAK_HOST"]
++private val kcPort = Environment["KEYCLOAK_PORT"]
++private val kcRealm = Environment["KEYCLOAK_REALM"]
++
++private val keycloakUrl = URL("http://$kcHost:$kcPort/realms/$kcRealm/protocol/openid-connect/certs")
++
++private val provider = JwkProviderBuilder(keycloakUrl)
++    .cached(10, 24, TimeUnit.HOURS)
++    .build()
++
++fun Application.configureSecurity() {
++    install(Authentication) {
++        jwt {
++            verifier(::verify)
++
++            validate {
++                runCatching { it.payload.toUserPrincipal() }.getOrNull()
++            }
++        }
++    }
++}
++
++data class UserPrincipal(
++    val id: UUID,
++    val username: String,
++    val email: String?,
++    val roles: List<String>,
++) : Principal {
++    fun requireRoles(vararg requiredRoles: String) {
++        if (!roles.containsAll(requiredRoles.toSet())) {
++            throw ForbiddenException("You don't have access to this resource")
++        }
++    }
++
++    fun hasRoles(vararg requiredRoles: String): Boolean = roles.containsAll(requiredRoles.toSet())
++}
++
++private fun verify(header: HttpAuthHeader): JWTVerifier? {
++    val rawToken = header.toString()
++    if (!rawToken.contains("Bearer ")) {
++        throw AuthenticationException("The token must be of the 'Bearer' type")
++    }
++    val token = rawToken.replace("Bearer ", "")
++
++    val jwt: DecodedJWT = JWT.decode(token)
++    val jwk: Jwk = provider.get(jwt.keyId)
++
++    val publicKey = jwk.publicKey as RSAPublicKey
++
++    return JWT
++        .require(Algorithm.RSA256(publicKey, null))
++        .build()
++}
++
++@Suppress("UNCHECKED_CAST")
++private fun Payload.toUserPrincipal(): UserPrincipal {
++    val id = getClaim("sub").asString().toUuidOrNull()
++        ?: throw IllegalArgumentException("Subject (id) is missing or is invalid UUID")
++    val username: String = getClaim("preferred_username").asString()
++    val email: String = getClaim("email").asString()
++
++    val resourceAccess = getClaim("resource_access").asMap()
++    val netrunnerClient = resourceAccess["netrunner-client"] as? Map<String, Any>
++    val roles: List<String> = netrunnerClient?.get("roles") as? List<String> ?: emptyList()
++
++    return UserPrincipal(id, username, email, roles)
++}
