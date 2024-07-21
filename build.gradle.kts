@@ -1,8 +1,9 @@
-val kotlin_version: String by project
-val logback_version: String by project
-val exposed_version: String by project
-val h2_version: String by project
-val postgres_version: String by project
+val kotlinVersion: String by project
+val koinKtor: String by project
+val logbackVersion: String by project
+val exposedVersion: String by project
+val h2Version: String by project
+val postgresVersion: String by project
 
 plugins {
     kotlin("jvm") version "2.0.0"
@@ -22,24 +23,54 @@ application {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://jitpack.io") }
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+
+    implementation("io.ktor:ktor-client-core-jvm")
+    implementation("io.ktor:ktor-client-apache-jvm")
     implementation("io.ktor:ktor-server-core-jvm")
+    implementation("io.ktor:ktor-server-host-common-jvm")
+    implementation("io.ktor:ktor-server-netty-jvm")
+    implementation("io.ktor:ktor-server-openapi-jvm")
+
+    implementation("io.insert-koin:koin-ktor:$koinKtor")
+    implementation("io.insert-koin:koin-logger-slf4j:$koinKtor")
+
+    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
+    implementation("com.h2database:h2:$h2Version")
+    implementation("org.postgresql:postgresql:$postgresVersion")
+
     implementation("io.ktor:ktor-server-auth-jvm")
     implementation("io.ktor:ktor-server-auth-jwt-jvm")
-    implementation("io.ktor:ktor-server-host-common-jvm")
-    implementation("io.ktor:ktor-server-status-pages-jvm")
+
     implementation("io.ktor:ktor-server-cors-jvm")
-    implementation("io.ktor:ktor-server-openapi")
+    implementation("io.ktor:ktor-server-forwarded-header-jvm")
     implementation("io.ktor:ktor-server-content-negotiation-jvm")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
-    implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
-    implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
-    implementation("com.h2database:h2:$h2_version")
-    implementation("org.postgresql:postgresql:$postgres_version")
-    implementation("io.ktor:ktor-server-netty-jvm")
-    implementation("ch.qos.logback:logback-classic:$logback_version")
+    implementation("io.ktor:ktor-server-request-validation-jvm")
+
+    implementation("io.ktor:ktor-server-resources-jvm")
+    implementation("io.ktor:ktor-server-status-pages-jvm")
+    implementation("io.ktor:ktor-server-call-logging-jvm")
+    implementation("ch.qos.logback:logback-classic:$logbackVersion")
+
+
+    implementation("com.github.MrKekovich:kvalid-dsl:0.1.2")
+
     testImplementation("io.ktor:ktor-server-tests-jvm")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
+}
+
+tasks.jar {
+    manifest {
+        attributes(
+            "Main-Class" to "ru.netrunner.courses.ApplicationKt"
+        )
+    }
 }
