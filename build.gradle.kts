@@ -65,6 +65,9 @@ dependencies {
 
     testImplementation("io.ktor:ktor-server-tests-jvm")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
+    testImplementation("io.ktor:ktor-client-core-jvm")
+    testImplementation("io.ktor:ktor-client-cio-jvm")
+    testImplementation("io.ktor:ktor-client-content-negotiation-jvm")
 }
 
 tasks.jar {
