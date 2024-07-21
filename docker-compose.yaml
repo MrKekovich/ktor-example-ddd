@@ -1,0 +1,82 @@
+version: "3.9"
+name: ktor-example-ddd
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
+    volumes:
+      - ./tmp/db:/var/lib/postgresql/data
+    networks:
+      - backend-network
+
+  keycloak-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
+    volumes:
+      - ./tmp/keycloak-db:/var/lib/postgresql/data
+    networks:
+      - keycloak-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.1
+    ports:
+      - "8180:8080"
+    environment:
+      KEYCLOAK_ADMIN: "admin"
+      KEYCLOAK_ADMIN_PASSWORD: "admin"
+      KC_DB: "postgres"
+      KC_DB_URL: "jdbc:postgresql://keycloak-db:5432/postgres"
+      KC_DB_PASSWORD: "postgres"
+      KC_DB_USERNAME: "postgres"
+      KC_DB_SCHEMA: "public"
+      KEYCLOAK_IMPORT: "/opt/keycloak/data/import"
+    command:
+      - "start-dev"
+      - "--import-realm"
+      - "-Dkeycloak.migration.action=import"
+      - "-Dkeycloak.migration.provider=dir"
+      - "-Dkeycloak.migration.dir=/opt/keycloak/data/import"
+      - "-Dkeycloak.migration.strategy=OVERWRITE_EXISTING"
+    volumes:
+      - ./realms:/opt/keycloak/data/import
+    depends_on:
+      - keycloak-db
+    networks:
+      - keycloak-network
+      - app-network
+    restart: always
+
+  ktor-example-ddd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_DATABASE: "postgres"
+      POSTGRES_HOST: "db"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: "postgres"
+      KEYCLOAK_HOST: "keycloak"
+      KEYCLOAK_PORT: "8080"
+      KEYCLOAK_REALM: "example"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - keycloak
+      - db
+    networks:
+      - backend-network
+      - app-network
+    restart: always
+
+networks:
+  keycloak-network:
+  backend-network:
+  app-network:
