@@ -9,12 +9,12 @@ import org.koin.logger.slf4jLogger
 val repositoryModule = module {
 }
 
-val serviceModule = module {
+val useCaseModule = module {
 }
 
 fun Application.configureKoin() {
     install(Koin) {
         slf4jLogger()
-        modules(repositoryModule, serviceModule)
+        modules(repositoryModule, useCaseModule)
     }
 }
