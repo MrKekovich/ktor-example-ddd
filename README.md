@@ -2,8 +2,9 @@
 
 <p align="center">
 <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/kotlin-2.0.0-blue.svg?logo=kotlin" alt="Kotlin 2.0.0"></a>
-<a href="https://ktor.io/"><img src="https://img.shields.io/badge/ktor-2.3.12-blue.svg?logo=ktor" alt="Ktor 2.3.12"></a>
+<a href="https://ktor.io/"><img src="https://img.shields.io/badge/ktor-2.3.12-blue.svg?logo=ktor&logoColor=7f52ff" alt="Ktor 2.3.12"></a>
 <img src="https://img.shields.io/badge/version-1.0.0-g.svg" alt="">
+<a href="LICENSE"><img src="https://img.shields.io/badge/MIT-license-green.svg" alt="MIT license"></a>
 </p>
 
 ---
@@ -70,29 +71,35 @@ src
                 └── utils
 ```
 
-## 🚀 Getting Started
+## 📦 Quick Start
 
-1. Clone the repository:
-   ```
+1. **Clone the repository:**
+   ```bash
    git clone https://github.com/MrKekovich/ktor-example-ddd
    ```
 
-2. Navigate to the project directory:
-   ```
+2. **Navigate to the project directory:**
+   ```bash
    cd ktor-example-ddd
    ```
 
-3. Build the project:
-   ```
-   ./gradlew build
+3. **Build and Run the Application:**
+
+   Use Docker Compose to build and run the application along with its dependencies 
+   ```bash
+   docker-compose up --build
    ```
 
-4. Run the application:
-   ```
-   ./gradlew run
-   ```
+4. **Access the API:**
 
-The API will be available at `http://localhost:8080`.
+   Once the containers are up and running, you can access the API at http://localhost:8080.
+
+5. **Stopping the Application:**
+
+   To stop the running containers, press Ctrl+C in the terminal where Docker Compose is running, or use:
+   ```bash
+   docker-compose down
+   ```
 
 ## 📖 API Documentation
 
