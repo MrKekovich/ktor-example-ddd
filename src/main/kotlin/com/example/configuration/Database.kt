@@ -1,7 +1,7 @@
 package com.example.configuration
 
-import com.example.post.schema.PostTable
-import com.example.utils.Environment
+import com.example.post.infrastructure.persistence.PostTable
+import com.example.shared.infrastructure.config.Environment
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction

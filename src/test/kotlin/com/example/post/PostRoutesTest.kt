@@ -1,11 +1,11 @@
 package com.example.post
 
 import com.example.configuration.generateTestToken
-import com.example.post.dto.PostRq
-import com.example.post.dto.PostRs
+import com.example.post.application.dto.PostRq
+import com.example.post.application.dto.PostRs
+import com.example.post.domain.entity.PostEntity
 import com.example.post.repository.PostInMemoryRepository
 import com.example.testModule
-import com.example.utils.KotlinInstant
 import com.example.utils.createClient
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
@@ -22,6 +22,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.datetime.Clock
 import org.junit.Before
 import org.junit.Test
+import com.example.shared.utils.types.KotlinInstant
 import java.util.*
 import kotlin.test.assertEquals
 
@@ -202,6 +203,7 @@ class PostRoutesTest {
         assertEquals(PostInMemoryRepository.findAll().size, 0, "Size check failed: ${PostInMemoryRepository.findAll().size} != 0")
     }
 
+    @Test
     fun `should fail on validation`() = testApplication {
         application { testModule() }
         val client = createClient()

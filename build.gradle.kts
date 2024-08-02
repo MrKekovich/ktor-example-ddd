@@ -73,7 +73,7 @@ dependencies {
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "ru.netrunner.courses.ApplicationKt"
+            "Main-Class" to "com.example.ApplicationKt"
         )
     }
 }

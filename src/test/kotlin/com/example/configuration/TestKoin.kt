@@ -1,7 +1,7 @@
 package com.example.configuration
 
 import com.example.post.repository.PostInMemoryRepository
-import com.example.post.repository.PostRepository
+import com.example.post.domain.repository.PostRepository
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import org.koin.dsl.module

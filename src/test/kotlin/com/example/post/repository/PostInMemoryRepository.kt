@@ -1,6 +1,7 @@
 package com.example.post.repository
 
-import com.example.post.PostEntity
+import com.example.post.domain.entity.PostEntity
+import com.example.post.domain.repository.PostRepository
 import com.example.shared.repository.InMemoryRepository
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock

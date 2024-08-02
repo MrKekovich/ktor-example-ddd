@@ -9,8 +9,8 @@ import com.auth0.jwt.interfaces.DecodedJWT
 import com.auth0.jwt.interfaces.JWTVerifier
 import com.auth0.jwt.interfaces.Payload
 import com.example.exceptions.ForbiddenException
-import com.example.utils.Environment
-import com.example.utils.toUuidOrNull
+import com.example.shared.application.routes.toUuidOrNull
+import com.example.shared.infrastructure.config.Environment
 import io.ktor.http.auth.HttpAuthHeader
 import io.ktor.server.application.Application
 import io.ktor.server.application.install

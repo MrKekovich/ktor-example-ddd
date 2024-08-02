@@ -1,8 +1,9 @@
 package com.example.shared.repository
 
-import com.example.shared.IdEntity
+import com.example.shared.domain.entity.IdEntity
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import com.example.shared.infrastructure.repository.IdEntityRepository
 
 abstract class InMemoryRepository<ID : Comparable<ID>, E : IdEntity<ID>> : IdEntityRepository<ID, E> {
     protected val mutex = Mutex()

@@ -1,8 +1,8 @@
 package com.example.configuration
 
 import com.example.exceptions.ForbiddenException
-import com.example.post.postRoutes
-import com.example.utils.ErrorResponse
+import com.example.post.application.route.postRoutes
+import com.example.shared.application.dto.ErrorResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install

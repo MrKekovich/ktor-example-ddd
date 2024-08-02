@@ -1,10 +1,10 @@
 package com.example.configuration
 
-import com.example.shared.dto.Validatable
-import com.example.utils.toValidationResult
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.requestvalidation.RequestValidation
+import com.example.shared.utils.validation.Validatable
+import com.example.shared.utils.validation.toValidationResult
 
 fun Application.configureValidation() {
     install(RequestValidation) {
